@@ -1,12 +1,29 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { randomUUID } from "crypto";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-export const STORAGE_DIR = path.join(process.cwd(), "storage");
+// On serverless hosts (Vercel/Lambda) the deployment dir is read-only — only
+// /tmp is writable. Locally we keep using the project directory so files persist.
+// NOTE: /tmp is ephemeral and not shared across instances, so this is suitable
+// for a demo/single session but is not durable storage. For production, swap
+// this layer for a database + object store (e.g. Postgres + Vercel Blob/S3).
+const BASE_DIR = process.env.VERCEL ? os.tmpdir() : process.cwd();
+const DATA_DIR = path.join(BASE_DIR, "data");
+export const STORAGE_DIR = path.join(BASE_DIR, "storage");
 
-for (const dir of [DATA_DIR, STORAGE_DIR]) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+function ensureDirs(): void {
+  for (const dir of [DATA_DIR, STORAGE_DIR]) {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+// Create directories on import where possible; ignore failures so importing the
+// module never crashes a cold start. Writes call ensureDirs() again defensively.
+try {
+  ensureDirs();
+} catch {
+  // best-effort — re-attempted lazily before each write
 }
 
 export type DocumentStatus = "ingested" | "extracted" | "failed";
@@ -44,6 +61,7 @@ function read<T>(file: string): T[] {
 }
 
 function write<T>(file: string, data: T[]): void {
+  ensureDirs();
   fs.writeFileSync(path.join(DATA_DIR, file), JSON.stringify(data, null, 2));
 }
 
