@@ -37,6 +37,9 @@ export type Document = {
   attachmentId: string;
   emailSubject: string;
   createdAt: string;
+  // Set true once an underwriter publishes the reviewed fields to the CRM.
+  // Drives the "Review Queue" vs "Completed" pipeline views.
+  published?: boolean;
 };
 
 export type Extraction = {
@@ -70,10 +73,22 @@ export const db = {
     get: (id: string): Document | undefined =>
       read<Document>("documents.json").find((d) => d.id === id),
 
+    // Every document, newest first — for the pipeline (Review Queue / Completed) views.
+    all: (): Document[] =>
+      read<Document>("documents.json").sort((a, b) =>
+        b.createdAt.localeCompare(a.createdAt)
+      ),
+
     findByAttachment: (messageId: string, attachmentId: string): Document | undefined =>
       read<Document>("documents.json").find(
         (d) => d.messageId === messageId && d.attachmentId === attachmentId
       ),
+
+    // All documents ingested from one email, oldest first (stable display order).
+    forMessage: (messageId: string): Document[] =>
+      read<Document>("documents.json")
+        .filter((d) => d.messageId === messageId)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
 
     insert: (data: Omit<Document, "id" | "createdAt">): Document => {
       const docs = read<Document>("documents.json");

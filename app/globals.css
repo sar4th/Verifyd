@@ -5,7 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
 }
 
 @keyframes fade-up {
@@ -65,24 +68,28 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  /* Warm "paper" neutrals tinted toward the brand teal-green, with a deep
+     ink-teal primary that still reads near-black and an emerald brand accent. */
+  --background: oklch(0.994 0.004 120);
+  --foreground: oklch(0.18 0.012 165);
+  --card: oklch(1 0.002 120);
+  --card-foreground: oklch(0.18 0.012 165);
+  --popover: oklch(1 0.002 120);
+  --popover-foreground: oklch(0.18 0.012 165);
+  --primary: oklch(0.27 0.04 170);
+  --primary-foreground: oklch(0.985 0.005 120);
+  --secondary: oklch(0.968 0.006 150);
+  --secondary-foreground: oklch(0.27 0.04 170);
+  --muted: oklch(0.968 0.006 150);
+  --muted-foreground: oklch(0.52 0.018 165);
+  --accent: oklch(0.962 0.012 160);
+  --accent-foreground: oklch(0.27 0.04 170);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.918 0.006 155);
+  --input: oklch(0.918 0.006 155);
+  --ring: oklch(0.55 0.09 165);
+  --brand: oklch(0.55 0.11 165);
+  --brand-foreground: oklch(0.985 0.005 120);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -118,6 +125,8 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+  --brand: oklch(0.7 0.13 165);
+  --brand-foreground: oklch(0.18 0.02 165);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);

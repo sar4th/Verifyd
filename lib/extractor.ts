@@ -18,8 +18,8 @@ export const EXTRACTION_MODELS = {
     inputMode: "vision" as const,
   },
   qwen: {
-    id: "qwen/qwen2.5-vl-72b-instruct",
-    label: "Qwen 2.5 VL",
+    id: "qwen/qwen3-vl-235b-a22b-instruct",
+    label: "Qwen3-VL 235B",
     inputMode: "file" as const,
   },
 } as const;
@@ -134,8 +134,9 @@ async function openRouterPost(
   if (!apiKey) throw new Error("OPENROUTER_API_KEY is not configured");
 
   // Fail cleanly instead of hanging forever if OpenRouter stalls.
+  // Big multi-attachment forms + the 235B Qwen model can run long, so give them room.
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000); // 2 min
+  const timeout = setTimeout(() => controller.abort(), 300_000); // 5 min
 
   let res: Response;
   try {
@@ -158,7 +159,7 @@ async function openRouterPost(
   } catch (e) {
     if (e instanceof Error && e.name === "AbortError") {
       throw new Error(
-        `${modelId} timed out after 120s. Scanned PDFs are slow to OCR — try again or use Gemini 2.5 Flash.`
+        `${modelId} timed out after 5 min. Scanned PDFs are slow to OCR — try again or use Gemini 2.5 Flash.`
       );
     }
     throw e;

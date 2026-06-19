@@ -1,16 +1,11 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { TOKEN_COOKIE } from "@/lib/auth";
-import {
-  Inbox,
-  FileText,
-  Loader2,
-  ClipboardCheck,
-  CheckCircle2,
-  Settings,
-  Plug,
-} from "lucide-react";
-import { DocumentQueue, type QueueMessage } from "@/components/mail/document-queue";
+import { db } from "@/lib/db";
+import { Inbox } from "lucide-react";
+import { Inbox as InboxClient } from "@/components/mail/inbox";
+import type { FilterKey, QueueMessage } from "@/components/mail/inbox-helpers";
+import { Sidebar, type SidebarKey } from "@/components/mail/sidebar";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -48,12 +43,22 @@ async function getMessages(token: string): Promise<GraphMessage[]> {
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 
+// Map the sidebar "view" query param to inbox filter + active nav key.
+const VIEW_TO_FILTER: Record<string, FilterKey> = {
+  ready: "attachments",
+  new: "unread",
+  all: "all",
+};
+
 export default async function MailPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ view?: string }>;
 }) {
-  const { tab } = await searchParams;
+  const { view } = await searchParams;
+  const activeFilter: FilterKey = VIEW_TO_FILTER[view ?? "all"] ?? "all";
+  const activeNav: SidebarKey =
+    view === "ready" ? "ready" : view === "new" ? "new" : "all";
   const token = (await cookies()).get(TOKEN_COOKIE)?.value;
 
   // ── Unauthenticated ──────────────────────────────────────────────────────
@@ -91,17 +96,27 @@ export default async function MailPage({
   const pdfCount = messages.filter((m) => m.hasAttachments).length;
   const unreadCount = messages.filter((m) => !m.isRead).length;
 
-  const activeTab: "all" | "pdf" | "unread" =
-    tab === "pdf" ? "pdf" : tab === "unread" ? "unread" : "all";
+  // Pipeline counts come from ingested documents, independent of the inbox.
+  const allDocs = db.documents.all();
+  const reviewCount = allDocs.filter((d) => !d.published).length;
+  const completedCount = allDocs.filter((d) => d.published).length;
 
-  const filtered =
-    activeTab === "pdf"
-      ? messages.filter((m) => m.hasAttachments)
-      : activeTab === "unread"
-      ? messages.filter((m) => !m.isRead)
-      : messages;
+  const navCounts = {
+    all: messages.length,
+    ready: pdfCount,
+    new: unreadCount,
+    review: reviewCount,
+    completed: completedCount,
+  };
 
-  const queueRows: QueueMessage[] = filtered.map((m) => ({
+  const VIEW_TITLE: Record<string, { title: string; sub: string }> = {
+    all:   { title: "All Applications", sub: `${messages.length} messages` },
+    ready: { title: "Ready to Process", sub: `${pdfCount} with attachments` },
+    new:   { title: "New Arrivals",     sub: `${unreadCount} unread` },
+  };
+  const heading = VIEW_TITLE[view ?? "all"] ?? VIEW_TITLE.all;
+
+  const queueRows: QueueMessage[] = messages.map((m) => ({
     id: m.id,
     subject: m.subject,
     bodyPreview: m.bodyPreview,
@@ -112,69 +127,25 @@ export default async function MailPage({
     fromAddress: m.from?.emailAddress.address ?? null,
   }));
 
-  const counts = { all: messages.length, pdf: pdfCount, unread: unreadCount };
-
   // ── Layout ───────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <aside className="hidden w-[224px] shrink-0 flex-col border-r bg-sidebar lg:flex">
-        {/* Brand */}
-        <div className="flex h-14 items-center gap-2 border-b px-4">
-          <div className="flex size-6 items-center justify-center rounded-md bg-primary">
-            <span className="text-[13px] font-semibold text-primary-foreground">V</span>
-          </div>
-          <span className="text-sm font-semibold tracking-tight">Verifyd</span>
-        </div>
-
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3">
-          <p className="px-2 pb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground">
-            Workspace
-          </p>
-          <NavItem href="/mail" active={activeTab === "all"} icon={<Inbox className="size-4" />} count={messages.length}>
-            All Applications
-          </NavItem>
-          <NavItem href="/mail?tab=pdf" active={activeTab === "pdf"} icon={<FileText className="size-4" />} count={pdfCount}>
-            Ready to Process
-          </NavItem>
-          <NavItem href="/mail?tab=unread" active={activeTab === "unread"} icon={<Loader2 className="size-4" />} count={unreadCount}>
-            New Arrivals
-          </NavItem>
-
-          <p className="px-2 pt-5 pb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground">
-            Pipeline
-          </p>
-          <NavItem href="/mail" icon={<ClipboardCheck className="size-4" />}>
-            Review Queue
-          </NavItem>
-          <NavItem href="/mail" icon={<CheckCircle2 className="size-4" />}>
-            Completed
-          </NavItem>
-        </nav>
-
-        {/* Bottom */}
-        <div className="border-t p-2">
-          <div className="mb-1 flex items-center gap-2.5 rounded-md px-2 py-2">
-            <div className="flex size-7 items-center justify-center rounded-md border bg-background">
-              <Plug className="size-3.5 text-muted-foreground" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium">Outlook</p>
-              <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <span className="size-1.5 rounded-full bg-emerald-500" />
-                Connected
-              </p>
-            </div>
-          </div>
-          <NavItem href="/" icon={<Settings className="size-4" />}>
-            Settings
-          </NavItem>
-        </div>
-      </aside>
+      <Sidebar active={activeNav} counts={navCounts} />
 
       {/* ── Main ────────────────────────────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Top bar */}
+        <div className="flex h-14 shrink-0 items-center justify-between border-b px-5">
+          <div className="flex items-baseline gap-2.5">
+            <h1 className="text-base font-semibold tracking-tight">{heading.title}</h1>
+            <span className="text-xs text-muted-foreground tabular-nums">{heading.sub}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="size-1.5 rounded-full bg-emerald-500" />
+            Outlook connected
+          </div>
+        </div>
+
         {error ? (
           <div className="flex flex-1 items-center justify-center p-8">
             <div className="max-w-md rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
@@ -183,42 +154,9 @@ export default async function MailPage({
             </div>
           </div>
         ) : (
-          <DocumentQueue messages={queueRows} activeTab={activeTab} counts={counts} />
+          <InboxClient key={view ?? "all"} messages={queueRows} initialFilter={activeFilter} />
         )}
       </div>
     </div>
-  );
-}
-
-// ─── Sidebar nav item ────────────────────────────────────────────────────────
-
-function NavItem({
-  href,
-  active,
-  icon,
-  count,
-  children,
-}: {
-  href: string;
-  active?: boolean;
-  icon: React.ReactNode;
-  count?: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors ${
-        active
-          ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-          : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
-      }`}
-    >
-      <span className={active ? "text-foreground" : "text-muted-foreground"}>{icon}</span>
-      <span className="flex-1 truncate">{children}</span>
-      {typeof count === "number" && count > 0 && (
-        <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
-      )}
-    </Link>
   );
 }
