@@ -30,5 +30,8 @@ export async function POST(
     extractedJson: JSON.stringify(updated),
   });
 
+  // Publishing the reviewed fields marks the document complete (Completed view).
+  db.documents.update(id, { published: true });
+
   return NextResponse.json({ ok: true });
 }
